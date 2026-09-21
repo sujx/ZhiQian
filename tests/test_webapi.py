@@ -63,6 +63,76 @@ class TestWebAPISource:
         assert titles == ["生活记录"]
 
 
+class TestAttachments:
+    """WebAPI 附件列表、下载、端到端导出"""
+
+    def test_attachment_count_populated(self, mock_server):
+        src = WebAPISource("u", "p", mock_server)
+        src.login()
+        src.switch_source("个人笔记")
+        docs = src.get_all_documents(folders=["/技术/", "/生活/"])
+        by_title = {d.title: d for d in docs}
+        assert by_title["技术笔记一"].attachment_count == 2
+        assert by_title["生活记录"].attachment_count == 1
+
+    def test_attachments_from_download_cache(self, mock_server):
+        """download_note 响应含 attachments 时，缓存后直接返回"""
+        src = WebAPISource("u", "p", mock_server)
+        src.login()
+        src.switch_source("个人笔记")
+        html, _ = src.get_document_html("doc-tech-1")
+        assert html is not None
+        atts = src.get_document_attachments("doc-tech-1")
+        assert len(atts) == 2
+        names = {a.name for a in atts}
+        assert names == {"report.pdf", "data.csv"}
+
+    def test_attachments_via_list_api(self, mock_server):
+        """未经 download_note 缓存时，走独立的 attachment/list 接口"""
+        src = WebAPISource("u", "p", mock_server)
+        src.login()
+        src.switch_source("个人笔记")
+        atts = src.get_document_attachments("doc-life-1")
+        assert len(atts) == 1
+        assert atts[0].name == "photo.jpg"
+        assert atts[0].guid == "att-003"
+
+    def test_download_attachment_content(self, mock_server):
+        src = WebAPISource("u", "p", mock_server)
+        src.login()
+        src.switch_source("个人笔记")
+        data = src.download_attachment("doc-tech-1", "att-001")
+        assert data is not None
+        assert b"mock pdf" in data
+
+    def test_download_attachment_missing(self, mock_server):
+        src = WebAPISource("u", "p", mock_server)
+        src.login()
+        src.switch_source("个人笔记")
+        data = src.download_attachment("doc-tech-1", "nonexistent")
+        assert data is None
+
+    def test_end_to_end_with_attachments(self, mock_server, tmp_output):
+        from exporter.app import WizNoteExporter
+
+        cfg = ExportConfig(
+            source_type="webapi", username="u", password="p",
+            as_url=mock_server,
+            kb_guid="kb-personal-0001",
+            include_folders=["/技术/", "/技术/Python/", "/生活/"],
+            output_dir=str(tmp_output), max_workers=1)
+        stats = WizNoteExporter(cfg).export_all()
+        assert stats.success == 3
+        assert stats.attachments == 2
+        assert stats.skipped_images == 1
+
+        att_files = [f for f in tmp_output.rglob("*")
+                     if f.suffix in (".pdf", ".csv")]
+        att_names = {f.name for f in att_files}
+        assert "report.pdf" in att_names
+        assert "data.csv" in att_names
+
+
 class TestRetry:
     """重试机制：5xx 重试、精确 1100 重试、1100 子串不误判"""
 

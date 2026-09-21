@@ -27,6 +27,7 @@ class WebAPISource(DataSourceAdapter):
         self.client: Optional[WizNoteAPIClient] = None
         self._folders: List[str] = []
         self._logged_in = False
+        self._attachments_cache: Dict[str, List[WizAttachment]] = {}
 
     # ---------- 登录 ----------
 
@@ -42,6 +43,7 @@ class WebAPISource(DataSourceAdapter):
 
         self.client = WizNoteAPIClient(self.auth, kb_guid, kb_server)
         self._folders = self.client.get_all_folders()
+        self._attachments_cache.clear()
 
     # ---------- 数据源接口 ----------
 
@@ -84,11 +86,13 @@ class WebAPISource(DataSourceAdapter):
         for folder in target:
             for note in self.client.get_all_notes_in_folder(folder):
                 guid = note.get("docGuid") or note.get("guid", "")
+                att_count = note.get("attachmentCount", 0)
                 docs.append(WizDocument(
                     guid=guid,
                     title=note.get("title") or "无标题",
                     location=folder,
                     modified=self._parse_ts(note.get("dataModified")),
+                    attachment_count=att_count,
                     source_name=self.auth.kb_list[0]["name"]
                     if self.auth.kb_list else "在线知识库",
                 ))
@@ -105,18 +109,56 @@ class WebAPISource(DataSourceAdapter):
             return None
 
     def get_document_html(self, guid: str) -> Tuple[Optional[str], Dict[str, bytes]]:
-        """下载笔记，返回 (html, {}) — 在线资源随 HTML 引用"""
+        """下载笔记，解析 HTML 并缓存附件元数据"""
         if self.client is None:
             return None, {}
         data = self.client.download_note(guid)
         if not data:
             return None, {}
         html = data.get("html", "")
+        self._cache_attachments_from_response(guid, data)
         return html or None, {}
 
     def get_document_attachments(self, guid: str) -> List[WizAttachment]:
-        """在线 API 附件列表需额外接口，暂返回空（附件随下载跳过）"""
-        return []
+        """获取附件列表（优先用 download_note 缓存，否则单独请求）"""
+        if guid in self._attachments_cache:
+            return self._attachments_cache[guid]
+        if self.client is None:
+            return []
+        raw_list = self.client.get_note_attachments(guid)
+        atts = self._to_attachments(guid, raw_list)
+        self._attachments_cache[guid] = atts
+        return atts
 
     def download_attachment(self, guid: str, att_guid: str) -> Optional[bytes]:
-        return None
+        """通过 API 下载附件内容"""
+        if self.client is None:
+            return None
+        try:
+            return self.client.download_attachment(guid, att_guid)
+        except Exception as e:  # noqa: BLE001
+            logger.warning(f"附件下载失败 {att_guid}: {e}")
+            return None
+
+    # ---------- 内部方法 ----------
+
+    def _cache_attachments_from_response(self, guid: str,
+                                         data: dict) -> None:
+        """从 download_note 响应中提取附件信息并缓存"""
+        raw = data.get("attachments")
+        if not raw:
+            return
+        self._attachments_cache[guid] = self._to_attachments(guid, raw)
+
+    @staticmethod
+    def _to_attachments(doc_guid: str,
+                        raw_list: list) -> List[WizAttachment]:
+        """将 API 原始附件数据转为 WizAttachment 列表"""
+        result: List[WizAttachment] = []
+        for item in raw_list:
+            att_guid = item.get("guid", "")
+            name = item.get("name") or item.get("fileName", "")
+            if att_guid and name:
+                result.append(WizAttachment(
+                    guid=att_guid, document_guid=doc_guid, name=name))
+        return result

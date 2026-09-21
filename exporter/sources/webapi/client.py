@@ -172,19 +172,40 @@ class WizNoteAPIClient:
 
     @_rate_limit()
     def download_note(self, doc_guid: str) -> Optional[dict]:
-        """GET /ks/note/download/:kbGuid/:docGuid → {html, ...}"""
+        """GET /ks/note/download/:kbGuid/:docGuid → {html, attachments, ...}"""
         resp = self._get(
             f"/ks/note/download/{self.kb_guid}/{doc_guid}",
             params={"downloadInfo": 1, "downloadData": 1})
         content_type = resp.headers.get("content-type", "")
         if "application/json" in content_type:
             return self._result(resp)
-        # 可能直接返回 HTML
         return {"html": resp.text, "guid": doc_guid}
+
+    @_rate_limit()
+    def get_note_attachments(self, doc_guid: str) -> List[dict]:
+        """GET /ks/attachment/list/:kbGuid/:docGuid → 附件元数据列表"""
+        resp = self._get(
+            f"/ks/attachment/list/{self.kb_guid}/{doc_guid}")
+        result = self._result(resp)
+        if result is None:
+            return []
+        if isinstance(result, list):
+            return result
+        return result.get("attachments", result.get("result", []))
 
     @_rate_limit()
     def download_attachment(self, doc_guid: str, att_guid: str) -> Optional[bytes]:
         """GET /ks/attachment/download/:kbGuid/:docGuid/:attGuid"""
-        resp = self._get(
-            f"/ks/attachment/download/{self.kb_guid}/{doc_guid}/{att_guid}")
-        return resp.content if resp.status_code == 200 else None
+        url = (f"/ks/attachment/download/"
+               f"{self.kb_guid}/{doc_guid}/{att_guid}")
+        full_url = f"{self.kb_server}{url}"
+        try:
+            resp = requests.get(
+                full_url, headers=self.auth.get_headers(), timeout=_TIMEOUT)
+            if resp.status_code == 200:
+                return resp.content
+            logger.warning(f"附件下载返回 {resp.status_code}: {att_guid}")
+            return None
+        except requests.RequestException as e:
+            logger.warning(f"附件下载异常 {att_guid}: {e}")
+            return None
