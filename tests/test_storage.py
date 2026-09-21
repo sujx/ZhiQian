@@ -125,3 +125,44 @@ class TestIncremental:
         # 重新创建管理器（模拟二次运行）→ 从磁盘恢复索引
         sm2 = StorageManager(str(tmp_path))
         assert sm2.is_note_modified("g-103", now) is False
+
+
+class TestCheckpoint:
+    """断点续导：checkpoint 和 is_exported"""
+
+    def test_is_exported_false_for_new(self, tmp_path):
+        sm = StorageManager(str(tmp_path))
+        assert sm.is_exported("nonexistent-guid") is False
+
+    def test_is_exported_true_after_save(self, tmp_path):
+        sm = StorageManager(str(tmp_path))
+        sm.save_note(_doc("笔记", guid="g-201"), "# 内容")
+        assert sm.is_exported("g-201") is True
+
+    def test_checkpoint_persists_index(self, tmp_path):
+        sm = StorageManager(str(tmp_path))
+        sm.save_note(_doc("笔记", guid="g-202"), "# 内容")
+        sm.checkpoint()  # 持久化索引
+        # 重新创建管理器 → 从磁盘恢复
+        sm2 = StorageManager(str(tmp_path))
+        assert sm2.is_exported("g-202") is True
+
+    def test_checkpoint_thread_safe(self, tmp_path):
+        """并发 checkpoint 不崩溃"""
+        import threading
+        sm = StorageManager(str(tmp_path))
+
+        def worker(guid):
+            sm.save_note(_doc(f"笔记{guid}", guid=guid), "# 内容")
+            sm.checkpoint()
+
+        threads = [threading.Thread(target=worker, args=(f"g-30{i}",))
+                   for i in range(5)]
+        for t in threads:
+            t.start()
+        for t in threads:
+            t.join()
+
+        # 所有笔记都应被记录
+        for i in range(5):
+            assert sm.is_exported(f"g-30{i}") is True

@@ -144,8 +144,8 @@ class LocalSource(DataSourceAdapter):
         conn.row_factory = sqlite3.Row
         return conn
 
-    def get_all_documents(self, folders: Optional[List[str]] = None) -> List[WizDocument]:
-        """获取当前库全部文档元数据（folders 参数仅 webapi 使用，本地忽略）"""
+    def get_all_documents(self) -> List[WizDocument]:
+        """获取当前库全部文档元数据"""
         if self._current is None:
             return []
         conn = self._connect()

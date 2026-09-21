@@ -1,14 +1,8 @@
 {
-    "source_type": "local",
     "source_dir": "C:\\Users\\yourname\\Documents\\My Knowledge",
     "output_dir": "D:\\notes_backup",
     "preserve_structure": true,
     "image_strategy": "file",
     "add_frontmatter": true,
-    "max_workers": 4,
-    "username": "",
-    "password": "",
-    "as_url": "https://as.wiz.cn",
-    "kb_guid": "",
-    "include_folders": []
+    "max_workers": 4
 }

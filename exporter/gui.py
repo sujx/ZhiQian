@@ -164,81 +164,11 @@ class ExporterGUI(ctk.CTk):
                      text_color=COLORS["text3"]).grid(
             row=1, column=0, padx=20, pady=(0, 10), sticky="w")
 
-        # 数据源类型
-        ctk.CTkLabel(panel, text="数据源类型", font=_font(12),
-                     text_color=COLORS["text2"]).grid(
-            row=2, column=0, padx=20, pady=(8, 4), sticky="w")
-        self.source_menu = ctk.CTkOptionMenu(
-            panel, values=["本地缓存 (local)", "在线 API (webapi)"],
-            command=self._on_source_change, width=260, height=34,
-            fg_color=COLORS["card2"], button_color=COLORS["card2"],
-            button_hover_color=COLORS["border"], text_color=COLORS["text"],
-            dropdown_fg_color=COLORS["card2"], corner_radius=10)
-        self.source_menu.grid(row=3, column=0, padx=20, sticky="ew")
-
-        # webapi 账号（本地模式隐藏）
-        self.webapi_frame = ctk.CTkFrame(panel, fg_color="transparent")
-        self.webapi_frame.grid(row=4, column=0, padx=20, pady=(6, 0), sticky="ew")
-        self.webapi_frame.grid_columnconfigure(0, weight=1)
-        self.user_entry = ctk.CTkEntry(
-            self.webapi_frame, placeholder_text="用户名/邮箱", height=32,
-            fg_color=COLORS["card2"], border_color=COLORS["border"],
-            text_color=COLORS["text"], corner_radius=10)
-        self.user_entry.grid(row=0, column=0, columnspan=2, sticky="ew", pady=(0, 6))
-        self.pass_entry = ctk.CTkEntry(
-            self.webapi_frame, placeholder_text="密码", show="*", height=32,
-            fg_color=COLORS["card2"], border_color=COLORS["border"],
-            text_color=COLORS["text"], corner_radius=10)
-        self.pass_entry.grid(row=1, column=0, sticky="ew")
-        self.login_btn = ctk.CTkButton(
-            self.webapi_frame, text="登录", width=56, height=32, corner_radius=10,
-            font=_font(12), text_color="#FFFFFF",
-            fg_color=COLORS["accent"], hover_color=COLORS["accent_hover"],
-            command=self._login_webapi)
-        self.login_btn.grid(row=1, column=1, padx=(8, 0))
-
-        # 云端知识库选择（登录后显示）
-        self.kb_frame = ctk.CTkFrame(panel, fg_color="transparent")
-        self.kb_frame.grid(row=11, column=0, padx=20, pady=(10, 4), sticky="ew")
-        self.kb_frame.grid_columnconfigure(0, weight=1)
-        self.kb_menu = ctk.CTkOptionMenu(
-            self.kb_frame, values=["-- 登录后选择知识库 --"], height=34,
-            command=self._on_kb_change, width=260,
-            fg_color=COLORS["card2"], button_color=COLORS["card2"],
-            button_hover_color=COLORS["border"], text_color=COLORS["text"],
-            dropdown_fg_color=COLORS["card2"], corner_radius=10)
-        self.kb_menu.grid(row=0, column=0, sticky="ew")
-
-        # 云端文件夹多选（登录后显示）
-        self.folder_frame = ctk.CTkFrame(panel, fg_color=COLORS["card2"], corner_radius=10)
-        self.folder_frame.grid(row=12, column=0, padx=20, pady=(4, 8), sticky="ew")
-        self.folder_frame.grid_columnconfigure(0, weight=1)
-        self.folder_box = ctk.CTkScrollableFrame(
-            self.folder_frame, height=110, fg_color="transparent")
-        self.folder_box.grid(row=0, column=0, padx=(10, 6), pady=(8, 4), sticky="ew")
-        self.folder_box.grid_columnconfigure(0, weight=1)
-        self.folder_btn_row = ctk.CTkFrame(self.folder_frame, fg_color="transparent")
-        self.folder_btn_row.grid(row=1, column=0, padx=10, pady=(0, 8), sticky="ew")
-        self.sel_all_btn = ctk.CTkButton(
-            self.folder_btn_row, text="全选", width=48, height=26, corner_radius=8,
-            font=_font(11), fg_color=COLORS["card"], text_color=COLORS["text"],
-            hover_color=COLORS["border"], command=self._select_all_folders)
-        self.sel_all_btn.pack(side="left", padx=(0, 6))
-        self.sel_none_btn = ctk.CTkButton(
-            self.folder_btn_row, text="清空", width=48, height=26, corner_radius=8,
-            font=_font(11), fg_color=COLORS["card"], text_color=COLORS["text"],
-            hover_color=COLORS["border"], command=self._clear_folders)
-        self.sel_none_btn.pack(side="left")
-
-        self.folder_vars: dict = {}
-        self._webapi_source = None  # 登录后的 WebAPISource 实例
-        self._kb_guid_map: dict = {}  # 知识库名 -> GUID
-
         # 数据目录
         input_label = ctk.CTkLabel(panel, text="为知笔记数据目录", font=_font(12),
                                    text_color=COLORS["text2"])
-        input_label.grid(row=5, column=0, padx=20, pady=(12, 4), sticky="w")
-        row = self._dir_row(panel, 6)
+        input_label.grid(row=2, column=0, padx=20, pady=(8, 4), sticky="w")
+        row = self._dir_row(panel, 3)
         self.input_var = ctk.StringVar()
         row["entry"].configure(textvariable=self.input_var,
                                placeholder_text="如 D:\\My Knowledge")
@@ -254,18 +184,15 @@ class ExporterGUI(ctk.CTk):
         # 输出目录
         output_label = ctk.CTkLabel(panel, text="导出输出目录", font=_font(12),
                                     text_color=COLORS["text2"])
-        output_label.grid(row=7, column=0, padx=20, pady=(10, 4), sticky="w")
-        row2 = self._dir_row(panel, 8)
+        output_label.grid(row=4, column=0, padx=20, pady=(10, 4), sticky="w")
+        row2 = self._dir_row(panel, 5)
         self.output_var = ctk.StringVar(value="./notes_gui")
         row2["entry"].configure(textvariable=self.output_var)
         row2["btn"].configure(command=self._pick_output)
 
-        # 本地模式才显示的控件（webapi 模式隐藏）
-        self._local_only = [input_label, output_label, row["frame"], row2["frame"]]
-
         # 选项
         opt = ctk.CTkFrame(panel, fg_color=COLORS["card2"], corner_radius=10)
-        opt.grid(row=9, column=0, padx=20, pady=(14, 8), sticky="ew")
+        opt.grid(row=6, column=0, padx=20, pady=(14, 8), sticky="ew")
         opt.grid_columnconfigure(1, weight=1)
         self.struct_var = ctk.BooleanVar(value=True)
         self.front_var = ctk.BooleanVar(value=True)
@@ -285,25 +212,31 @@ class ExporterGUI(ctk.CTk):
                         fg_color=COLORS["accent"], hover_color=COLORS["accent_hover"],
                         checkmark_color="#FFFFFF").grid(
             row=2, column=0, columnspan=2, padx=14, pady=(0, 6), sticky="w")
+        self.resume_var = ctk.BooleanVar(value=False)
+        ctk.CTkCheckBox(opt, text="断点续导（跳过已导出）", variable=self.resume_var,
+                        font=_font(12), text_color=COLORS["text"],
+                        fg_color=COLORS["accent"], hover_color=COLORS["accent_hover"],
+                        checkmark_color="#FFFFFF").grid(
+            row=3, column=0, columnspan=2, padx=14, pady=(0, 6), sticky="w")
         ctk.CTkLabel(opt, text="图片策略", font=_font(12),
                      text_color=COLORS["text2"]).grid(
-            row=3, column=0, padx=(14, 8), pady=(6, 12), sticky="w")
+            row=4, column=0, padx=(14, 8), pady=(6, 12), sticky="w")
         self.image_menu = ctk.CTkOptionMenu(
             opt, values=["提取为文件 (file)", "内嵌 base64"], width=130, height=30,
             fg_color=COLORS["card"], button_color=COLORS["card"],
             button_hover_color=COLORS["border"], text_color=COLORS["text"],
             dropdown_fg_color=COLORS["card"], corner_radius=8)
-        self.image_menu.grid(row=3, column=1, padx=(0, 14), pady=(6, 12), sticky="e")
+        self.image_menu.grid(row=4, column=1, padx=(0, 14), pady=(6, 12), sticky="e")
 
         # 并发线程数
         thread_row = ctk.CTkFrame(panel, fg_color=COLORS["card2"], corner_radius=10)
-        thread_row.grid(row=13, column=0, padx=20, pady=(8, 4), sticky="ew")
+        thread_row.grid(row=7, column=0, padx=20, pady=(8, 4), sticky="ew")
         thread_row.grid_columnconfigure(0, weight=1)
         ctk.CTkLabel(thread_row, text="并发线程数", font=_font(12),
                      text_color=COLORS["text2"]).grid(
             row=0, column=0, padx=(14, 8), pady=8, sticky="w")
         self.workers_var = ctk.StringVar(value="4")
-        self._workers_edited = False  # 用户手动改过线程数则不再自动调整
+        self._workers_edited = False
         self.workers_entry = ctk.CTkEntry(
             thread_row, textvariable=self.workers_var, width=56, height=30,
             fg_color=COLORS["card"], border_color=COLORS["border"],
@@ -316,9 +249,6 @@ class ExporterGUI(ctk.CTk):
         ctk.CTkLabel(thread_row, text="(1 = 串行)", font=_font(11),
                      text_color=COLORS["text3"]).grid(
             row=0, column=2, padx=(0, 14), pady=8, sticky="w")
-
-        # 初始状态：本地模式（所有依赖控件定义完成后调用）
-        self._on_source_change("本地缓存 (local)")
 
     def _dir_row(self, master, row: int) -> dict:
         """生成 [输入框 + 浏览按钮] 一行"""
@@ -417,118 +347,6 @@ class ExporterGUI(ctk.CTk):
 
     # ---------- 交互 ----------
 
-    @staticmethod
-    def _set_visible(widget, visible: bool) -> None:
-        """grid 控件显隐切换"""
-        if visible:
-            widget.grid()
-        else:
-            widget.grid_remove()
-
-    def _on_source_change(self, choice: str) -> None:
-        """本地缓存：显示目录选择，隐藏账号；在线 API：相反"""
-        is_webapi = choice.startswith("在线")
-        logged_in = self._webapi_source is not None
-        self._set_visible(self.webapi_frame, is_webapi)
-        self._set_visible(self.kb_frame, is_webapi and logged_in)
-        self._set_visible(self.folder_frame, is_webapi and logged_in)
-        for w in self._local_only:
-            self._set_visible(w, not is_webapi)
-        # webapi 默认并发 2（用户未手动修改时自动调整）
-        if not self._workers_edited:
-            self.workers_var.set("2" if is_webapi else "4")
-
-    # ---------- webapi：登录 / 知识库 / 文件夹 ----------
-
-    def _login_webapi(self) -> None:
-        """登录为知笔记（后台线程），成功后加载知识库列表"""
-        username = self.user_entry.get().strip()
-        password = self.pass_entry.get()
-        if not username or not password:
-            self._log("[错误] 请输入用户名和密码")
-            self.status_label.configure(text="请填写账号密码", text_color=COLORS["danger"])
-            return
-
-        self.status_label.configure(text="正在登录...")
-        self.login_btn.configure(state="disabled")
-        self.update_idletasks()
-
-        import os
-        as_url = os.environ.get("WIZ_AS_URL", "https://as.wiz.cn")
-
-        def _do_login():
-            from exporter.sources.webapi.source import WebAPISource
-            source = WebAPISource(username, password, as_url)
-            try:
-                ok = source.login()
-            except Exception as e:  # noqa: BLE001
-                ok = False
-                self.progress_queue.put(("log", f"[错误] 登录异常: {e}"))
-            self.progress_queue.put(("login_result", (source, ok)))
-
-        threading.Thread(target=_do_login, daemon=True).start()
-
-    def _handle_login_result(self, source, ok: bool) -> None:
-        """在主线程处理登录结果"""
-        username = self.user_entry.get().strip()
-        self.login_btn.configure(state="normal")
-        if not ok or source is None:
-            self.status_label.configure(text="登录失败，请检查账号密码",
-                                        text_color=COLORS["danger"])
-            self._log("[错误] 登录失败（网络或账号问题）")
-            return
-
-        self._webapi_source = source
-        self._kb_guid_map = {kb["name"]: kb["kbGuid"]
-                             for kb in source.auth.get_kb_list()}
-        self.kb_menu.configure(values=list(self._kb_guid_map.keys()))
-        if self._kb_guid_map:
-            first = next(iter(self._kb_guid_map))
-            self.kb_menu.set(first)
-        self._set_visible(self.kb_frame, True)
-        self._on_kb_change(self.kb_menu.get())
-        self.status_label.configure(text=f"登录成功: {username}",
-                                    text_color=COLORS["success"])
-        self._log(f"[提示] 登录成功，{len(self._kb_guid_map)} 个知识库已加载")
-
-    def _on_kb_change(self, kb_name: str) -> None:
-        """切换知识库 → 加载文件夹列表"""
-        if self._webapi_source is None or not kb_name:
-            return
-        self._webapi_source.switch_source(kb_name)
-        folders = self._webapi_source.get_folder_list()
-        self._render_folders(folders)
-        self._set_visible(self.folder_frame, True)
-        self._log(f"[提示] 知识库「{kb_name}」: {len(folders)} 个文件夹")
-
-    def _render_folders(self, folders: list) -> None:
-        """渲染文件夹复选框列表"""
-        for w in self.folder_box.winfo_children():
-            w.destroy()
-        self.folder_vars = {}
-        for folder in folders:
-            var = ctk.BooleanVar(value=False)
-            self.folder_vars[folder] = var
-            ctk.CTkCheckBox(
-                self.folder_box, text=folder, variable=var,
-                font=_font(11), text_color=COLORS["text"],
-                fg_color=COLORS["accent"], hover_color=COLORS["accent_hover"],
-                checkmark_color="#FFFFFF").pack(anchor="w", pady=2)
-
-    def _select_all_folders(self) -> None:
-        for var in self.folder_vars.values():
-            var.set(True)
-
-    def _clear_folders(self) -> None:
-        for var in self.folder_vars.values():
-            var.set(False)
-
-    def _selected_kb_guid(self) -> str:
-        return self._kb_guid_map.get(self.kb_menu.get(), "")
-
-    def _selected_folders(self) -> list:
-        return [f for f, var in self.folder_vars.items() if var.get()]
-
     def _pick_input(self) -> None:
         d = filedialog.askdirectory(title="选择为知笔记数据目录")
         if d:
@@ -579,56 +397,26 @@ class ExporterGUI(ctk.CTk):
 
     def _start_export(self) -> None:
         output_dir = self.output_var.get().strip()
-        is_webapi = self.source_menu.get().startswith("在线")
+        source_dir = self.input_var.get().strip()
+        if not source_dir:
+            self._log("[错误] 请选择为知笔记数据目录")
+            self.status_label.configure(text="请选择数据目录", text_color=COLORS["danger"])
+            return
 
         from exporter.config import ExportConfig
         from exporter.app import WizNoteExporter
 
-        if is_webapi:
-            # 在线 API：需先登录并选择知识库/文件夹
-            if self._webapi_source is None:
-                self._log("[错误] 请先登录为知笔记账号")
-                self.status_label.configure(text="请先登录", text_color=COLORS["danger"])
-                return
-            kb_guid = self._selected_kb_guid()
-            if not kb_guid:
-                self._log("[错误] 请选择知识库")
-                return
-            folders = self._selected_folders()
-            if not folders:
-                self._log("[错误] 请勾选要导出的文件夹（或点全选）")
-                return
-            cfg = ExportConfig(
-                source_type="webapi",
-                username=self.user_entry.get().strip(),
-                password=self.pass_entry.get(),
-                kb_guid=kb_guid,
-                include_folders=folders,
-                output_dir=output_dir,
-                preserve_structure=self.struct_var.get(),
-                add_frontmatter=self.front_var.get(),
-                image_strategy=("file" if self.image_menu.get().startswith("提取")
-                                else "base64"),
-                incremental=self.incremental_var.get(),
-                max_workers=self._workers_value(),
-            )
-        else:
-            source_dir = self.input_var.get().strip()
-            if not source_dir:
-                self._log("[错误] 请选择为知笔记数据目录")
-                self.status_label.configure(text="请选择数据目录", text_color=COLORS["danger"])
-                return
-            cfg = ExportConfig(
-                source_type="local",
-                source_dir=source_dir,
-                output_dir=output_dir,
-                preserve_structure=self.struct_var.get(),
-                add_frontmatter=self.front_var.get(),
-                image_strategy=("file" if self.image_menu.get().startswith("提取")
-                                else "base64"),
-                incremental=self.incremental_var.get(),
-                max_workers=self._workers_value(),
-            )
+        cfg = ExportConfig(
+            source_dir=source_dir,
+            output_dir=output_dir,
+            preserve_structure=self.struct_var.get(),
+            add_frontmatter=self.front_var.get(),
+            image_strategy=("file" if self.image_menu.get().startswith("提取")
+                            else "base64"),
+            incremental=self.incremental_var.get(),
+            resume=self.resume_var.get(),
+            max_workers=self._workers_value(),
+        )
 
         exporter = WizNoteExporter(cfg)
 
@@ -726,9 +514,6 @@ class ExporterGUI(ctk.CTk):
                     self.status_label.configure(text="导出出错", text_color=COLORS["danger"])
                     self._log(f"[错误] {err}")
                     self._reset_buttons()
-                elif kind == "login_result":
-                    _, (source, ok) = item
-                    self._handle_login_result(source, ok)
         except queue.Empty:
             pass
         self.after(100, self._poll_queue)

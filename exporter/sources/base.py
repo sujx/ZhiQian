@@ -1,4 +1,4 @@
-"""数据源抽象接口：统一 local / webapi 两路数据源"""
+"""数据源抽象接口"""
 
 from __future__ import annotations
 

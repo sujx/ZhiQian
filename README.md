@@ -1,17 +1,18 @@
 # 知迁 — 为知笔记导出工具
 
-将为知笔记批量导出为 Markdown 文件，支持**本地缓存**和**在线 API** 两种数据源。保持文件夹结构、提取图片附件、生成 YAML 元数据，导出结果可直接导入 Obsidian / Logseq / Typora 等工具。
+将为知笔记批量导出为 Markdown 文件，支持本地缓存数据源。保持文件夹结构、提取图片附件、生成 YAML 元数据，导出结果可直接导入 Obsidian / Logseq / Typora 等工具。
 
 ## 功能特性
 
-- **双数据源** — 本地缓存（SQLite + `.ziw` ZIP 解析）/ 在线 API（登录 → 知识库 → 文件夹选择）
+- **本地缓存** — SQLite + `.ziw` ZIP 解析，自动发现数据目录
 - **高质量转换** — HTML→Markdown 代码块语言标注、表格修复、列表修复、噪音清理
 - **文件夹结构** — 保持原有层级，文件名 = 笔记标题
 - **图片处理** — 提取到 `assets/` 目录（file 模式）或内嵌 base64
 - **YAML 元数据** — 标题、创建/修改时间、标签、路径
 - **自动查找** — 跨平台自动发现为知笔记数据目录
-- **并发导出** — 线程数可配，限流线程安全，webapi 默认 2 并发
+- **并发导出** — 线程数可配，限流线程安全
 - **增量导出** — 跳过上次导出后未修改的笔记
+- **断点续导** — 中断后可从上次位置继续
 - **导出控制** — 开始 / 暂停 / 停止，进度实时显示
 - **群组笔记** — 自动发现并导出
 - **GUI 界面** — 深色主题，现代卡片式设计
@@ -59,10 +60,10 @@ chmod +x start.sh
 zhiqian --find
 
 # 列出全部笔记
-zhiqian --source local --input "C:\Users\xxx\Documents\My Knowledge" --list
+zhiqian --input "C:\Users\xxx\Documents\My Knowledge" --list
 
 # 导出到指定目录
-zhiqian --source local --input "C:\Users\xxx\Documents\My Knowledge" --output "D:\notes"
+zhiqian --input "C:\Users\xxx\Documents\My Knowledge" --output "D:\notes"
 ```
 
 ## GUI 使用
@@ -77,21 +78,6 @@ gui.bat --input "C:\Users\xxx\Documents\My Knowledge"
 
 **本地模式**：自动查找或浏览选择目录 → 开始导出
 
-**在线 API 模式**：填写账号密码 → 登录 → 选择知识库 → 勾选文件夹 → 导出
-
-## 在线 API 模式（CLI）
-
-```bash
-# 列出知识库
-zhiqian --source webapi --username 账号 --password 密码 --list-kb
-
-# 导出指定知识库
-zhiqian --source webapi --username 账号 --password 密码 --kb <GUID> --output D:\notes
-
-# 导出指定文件夹
-zhiqian --source webapi --username 账号 --password 密码 --kb <GUID> --folders "/技术/" "/生活/" --output D:\notes
-```
-
 ## 配置文件
 
 支持 JSON 配置文件，避免每次输入参数：
@@ -104,7 +90,6 @@ zhiqian --config config.json
 
 ```json
 {
-    "source_type": "local",
     "source_dir": "C:\\Users\\yourname\\Documents\\My Knowledge",
     "output_dir": "D:\\notes_backup",
     "preserve_structure": true,
@@ -118,7 +103,6 @@ zhiqian --config config.json
 
 | 参数 | 说明 | 默认值 |
 |------|------|--------|
-| `--source` | `local`（本地）/ `webapi`（在线） | `local` |
 | `--config` | JSON 配置文件路径 | — |
 | `--input` | 为知笔记本地数据目录 | — |
 | `--output` | 导出输出目录 | `./notes` |
@@ -128,11 +112,7 @@ zhiqian --config config.json
 | `--images` | `file`（提取为文件）/ `base64`（内嵌） | 配置文件值 |
 | `--workers` | 并发线程数 | 4 |
 | `--incremental` | 增量导出，跳过未修改笔记 | — |
-| `--username` | 在线模式账号 | — |
-| `--password` | 在线模式密码 | — |
-| `--as-url` | 在线模式 AS 服务器 | `https://as.wiz.cn` |
-| `--kb` | 在线模式知识库 GUID | 个人库 |
-| `--folders` | 在线模式限定文件夹（可多选） | 全部 |
+| `--resume` | 断点续导，跳过已导出笔记 | — |
 | `--no-frontmatter` | 不生成 YAML 元数据 | — |
 | `--flat` | 扁平输出，不保持层级 | — |
 | `-v` | 输出调试日志 | — |
@@ -166,11 +146,7 @@ zhiqian/
 │   ├── gui.py                      #   GUI 界面
 │   ├── sources/                    #   数据源适配器
 │   │   ├── local.py                #     本地缓存（SQLite + .ziw）
-│   │   ├── discover.py             #     自动查找数据目录
-│   │   └── webapi/                 #     在线 API
-│   │       ├── auth.py             #       认证与 Token 管理
-│   │       ├── client.py           #       API 客户端（限流 + 重试）
-│   │       └── source.py           #       WebAPI 适配器
+│   │   └── discover.py             #     自动查找数据目录
 │   ├── pipeline/                   #   处理管线
 │   │   ├── preprocessor.py         #     HTML 清洗
 │   │   ├── converter.py            #     HTML→Markdown 转换
@@ -207,7 +183,6 @@ python -m PyInstaller --onefile --windowed --name ZhiQian \
 ## 已知限制
 
 - **本地模式**：仅导出已下载到本地的笔记，云端未下载的会跳过并记录
-- **在线模式**：附件下载接口暂未实现；官方 API 偶发 503 / 参数错误（已内置指数退避重试）
 - **复杂 HTML**：微信文章等转换后可能有少量格式噪音，已做自动清理
 - **增量导出**：同一标题不同 GUID 的笔记会自动追加 GUID 后缀以避免冲突
 

@@ -1,4 +1,4 @@
-"""pytest 公共 fixture：fixture 库、mock 服务器、临时输出目录"""
+"""pytest 公共 fixture：fixture 库、临时输出目录"""
 
 from __future__ import annotations
 
@@ -24,16 +24,6 @@ def wiznote_fixture_dir(tmp_path_factory) -> Path:
     out = tmp_path_factory.mktemp("wiznote")
     build_fixture(str(out))
     return out
-
-
-@pytest.fixture()
-def mock_server():
-    """启动 mock 为知 API 服务器，返回 base_url"""
-    from mock_wiz_api import start_mock_server
-
-    server, base = start_mock_server()
-    yield base
-    server.shutdown()
 
 
 @pytest.fixture()

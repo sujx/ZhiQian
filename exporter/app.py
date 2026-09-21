@@ -79,24 +79,15 @@ class WizNoteExporter:
         stats = ExportStats()
         done = 0
 
-        # 知识库列表（webapi 指定 kb_guid 时只导出该库）
+        # 知识库列表
         src_names = self.source.discover_sources()
-        if self.config.source_type == "webapi" and self.config.kb_guid:
-            select = getattr(self.source, "select_kb", None)
-            if select is None or not select(self.config.kb_guid):
-                logger.error(f"未找到知识库: {self.config.kb_guid}")
-                return stats
-            kb_name = next(
-                (k["name"] for k in self.source.auth.get_kb_list()
-                 if k["kbGuid"] == self.config.kb_guid), "在线知识库")
-            src_names = [kb_name]
 
         for src_name in src_names:
             if cancel_event and cancel_event.is_set():
                 logger.warning("导出已取消")
                 break
             self.source.switch_source(src_name)
-            docs = self.source.get_all_documents(self._active_folders())
+            docs = self.source.get_all_documents()
 
             # 增量模式：跳过上次导出后未修改的笔记
             if self.config.incremental:
@@ -107,6 +98,17 @@ class WizNoteExporter:
                 logger.info(f"[{src_name}] 增量模式: 共 {before} 篇, "
                             f"跳过 {skipped} 篇未修改")
                 stats.total += skipped  # 计入总数但不执行
+
+            # 断点续导：跳过已导出的笔记
+            if self.config.resume:
+                before = len(docs)
+                docs = [d for d in docs
+                        if not self.storage.is_exported(d.guid)]
+                skipped = before - len(docs)
+                if skipped > 0:
+                    logger.info(f"[{src_name}] 断点续导: 跳过 {skipped} 篇"
+                                f"已导出笔记")
+                stats.total += skipped
             stats.total += len(docs)
             logger.info(f"[{src_name}] 开始导出 {len(docs)} 篇"
                         f"(线程数 {self.config.max_workers})")
@@ -129,12 +131,6 @@ class WizNoteExporter:
 
         self._save_metadata(stats)
         return stats
-
-    def _active_folders(self) -> Optional[List[str]]:
-        """返回当前数据源的有效文件夹过滤（webapi 用），local 返回 None"""
-        if self.config.source_type != "webapi" or not self.config.include_folders:
-            return None
-        return list(self.config.include_folders)
 
     def _export_batch(self, docs: List[WizDocument], cancel_event=None,
                       pause_event=None) -> List[Tuple[bool, str, int, int]]:
@@ -186,7 +182,11 @@ class WizNoteExporter:
                     return False, "已停止", 0, 0
                 time.sleep(0.2)
         try:
-            return self._export_one(doc)
+            result = self._export_one(doc)
+            # 成功导出后立即持久化索引（断点续导检查点）
+            if result[0]:
+                self.storage.checkpoint()
+            return result
         except Exception as e:  # noqa: BLE001
             logger.error(f"导出异常 {doc.title}: {e}")
             return False, f"异常: {e}", 0, 0

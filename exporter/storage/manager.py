@@ -5,6 +5,7 @@ from __future__ import annotations
 import logging
 import os
 import re
+import threading
 from pathlib import Path
 from typing import Dict, Optional
 
@@ -29,6 +30,7 @@ class StorageManager:
         self.preserve_structure = preserve_structure
         self.base_dir.mkdir(parents=True, exist_ok=True)
         self.note_index: Dict[str, dict] = {}
+        self._index_lock = threading.Lock()
         self._load_index()
 
     # ---------- 索引（增量备份基础） ----------
@@ -80,6 +82,15 @@ class StorageManager:
                           ensure_ascii=False, indent=2)
         except OSError as e:
             logger.error(f"保存索引失败: {e}")
+
+    def checkpoint(self) -> None:
+        """线程安全的索引持久化（断点续导用），每篇成功导出后调用"""
+        with self._index_lock:
+            self.save_index()
+
+    def is_exported(self, guid: str) -> bool:
+        """判断笔记是否已导出（断点续导用）"""
+        return guid in self.note_index
 
     # ---------- 路径计算 ----------
 
