@@ -441,7 +441,7 @@ class ExporterGUI(ctk.CTk):
     # ---------- webapi：登录 / 知识库 / 文件夹 ----------
 
     def _login_webapi(self) -> None:
-        """登录为知笔记，成功后加载知识库列表"""
+        """登录为知笔记（后台线程），成功后加载知识库列表"""
         username = self.user_entry.get().strip()
         password = self.pass_entry.get()
         if not username or not password:
@@ -449,24 +449,30 @@ class ExporterGUI(ctk.CTk):
             self.status_label.configure(text="请填写账号密码", text_color=COLORS["danger"])
             return
 
-        from exporter.sources.webapi.source import WebAPISource
-
         self.status_label.configure(text="正在登录...")
         self.login_btn.configure(state="disabled")
         self.update_idletasks()
 
-        # AS 服务器地址（默认官方，测试可用 WIZ_AS_URL 注入 mock）
         import os
         as_url = os.environ.get("WIZ_AS_URL", "https://as.wiz.cn")
-        source = WebAPISource(username, password, as_url)
-        try:
-            ok = source.login()
-        except Exception as e:  # noqa: BLE001
-            ok = False
-            self._log(f"[错误] 登录异常: {e}")
-        self.login_btn.configure(state="normal")
 
-        if not ok:
+        def _do_login():
+            from exporter.sources.webapi.source import WebAPISource
+            source = WebAPISource(username, password, as_url)
+            try:
+                ok = source.login()
+            except Exception as e:  # noqa: BLE001
+                ok = False
+                self.progress_queue.put(("log", f"[错误] 登录异常: {e}"))
+            self.progress_queue.put(("login_result", (source, ok)))
+
+        threading.Thread(target=_do_login, daemon=True).start()
+
+    def _handle_login_result(self, source, ok: bool) -> None:
+        """在主线程处理登录结果"""
+        username = self.user_entry.get().strip()
+        self.login_btn.configure(state="normal")
+        if not ok or source is None:
             self.status_label.configure(text="登录失败，请检查账号密码",
                                         text_color=COLORS["danger"])
             self._log("[错误] 登录失败（网络或账号问题）")
@@ -720,6 +726,9 @@ class ExporterGUI(ctk.CTk):
                     self.status_label.configure(text="导出出错", text_color=COLORS["danger"])
                     self._log(f"[错误] {err}")
                     self._reset_buttons()
+                elif kind == "login_result":
+                    _, (source, ok) = item
+                    self._handle_login_result(source, ok)
         except queue.Empty:
             pass
         self.after(100, self._poll_queue)

@@ -14,7 +14,7 @@ from bs4 import BeautifulSoup
 
 logger = logging.getLogger(__name__)
 
-_DATA_URI_RE = re.compile(r"data:image/(\w+);base64,(.+)")
+_DATA_URI_RE = re.compile(r"data:image/(\w+);base64,(.+)", re.DOTALL)
 _IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp", ".svg"}
 
 

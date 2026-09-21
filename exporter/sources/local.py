@@ -33,6 +33,7 @@ _HTML_ENCODINGS = ["utf-8", "utf-16-le", "gbk", "gb2312"]
 _IMAGE_EXTS = {".png", ".jpg", ".jpeg", ".gif", ".bmp", ".webp"}
 _WINDOWS_ILLEGAL = '<>:"/\\|?*\r\n'
 _MAX_SCAN_DEPTH = 4  # 扫描 index.db 的最大目录深度
+_MAX_ZIP_ENTRY_BYTES = 100 * 1024 * 1024  # ZIP 单条目大小上限（100 MB）
 
 
 class _SourceCtx:
@@ -209,15 +210,32 @@ class LocalSource(DataSourceAdapter):
         finally:
             conn.close()
 
+    def _safe_join(self, root: Path, *parts: str) -> Optional[Path]:
+        """拼接路径并校验结果仍在 root 之下，防止路径穿越"""
+        try:
+            joined = root.joinpath(*parts)
+        except (ValueError, OSError):
+            return None
+        resolved = joined.resolve()
+        root_resolved = root.resolve()
+        if not resolved.is_relative_to(root_resolved):
+            logger.warning(f"路径穿越已拦截: {joined} 不在 {root} 内")
+            return None
+        return joined
+
     def _locate_note_file(self, title: str, location: str,
                           guid: Optional[str] = None) -> Optional[Path]:
         """定位笔记 ZIP 文件: <root>/<location>/<title>.ziw（多级容错）"""
         root = self._current.root
         loc_parts = [p for p in location.strip("/").split("/") if p]
 
+        # 校验 location 不含路径穿越成分
+        base = self._safe_join(root, *loc_parts) if loc_parts else root
+        if base is None:
+            base = root
+
         # 候选1: 精确路径（最常规）
         candidates = []
-        base = root.joinpath(*loc_parts) if loc_parts else root
         candidates.append(base / f"{title}.ziw")
 
         # 候选2: 标题清洗非法字符后的文件名
@@ -300,7 +318,13 @@ class LocalSource(DataSourceAdapter):
         images: Dict[str, bytes] = {}
         try:
             with zipfile.ZipFile(note_path, "r") as zf:
-                for name in zf.namelist():
+                for info in zf.infolist():
+                    if info.file_size > _MAX_ZIP_ENTRY_BYTES:
+                        logger.warning(
+                            f"ZIP 条目 uncompressed大小超限（{info.file_size} > "
+                            f"{_MAX_ZIP_ENTRY_BYTES}），已跳过: {info.filename}")
+                        continue
+                    name = info.filename
                     if name.endswith("index.html"):
                         html = self._decode_html(zf.read(name))
                     elif Path(name).suffix.lower() in _IMAGE_EXTS:
@@ -359,20 +383,37 @@ class LocalSource(DataSourceAdapter):
         if not name:
             return None
 
-        # 1) ZIP 内部查找
+        # 1) ZIP 内部查找：优先完整路径匹配，兜底 basename 匹配
         if note_path is not None:
             try:
                 with zipfile.ZipFile(note_path, "r") as zf:
-                    for zname in zf.namelist():
-                        if os.path.basename(zname) == name:
+                    # 优先：精确路径匹配（如 index_files/<name>）
+                    for info in zf.infolist():
+                        if info.file_size > _MAX_ZIP_ENTRY_BYTES:
+                            continue
+                        zname = info.filename
+                        if zname.endswith(name) or zname.endswith(f"index_files/{name}"):
                             return zf.read(zname)
+                    # 兜底：basename 匹配（仅当无歧义时）
+                    basename_matches = []
+                    for info in zf.infolist():
+                        if info.file_size > _MAX_ZIP_ENTRY_BYTES:
+                            continue
+                        zname = info.filename
+                        if os.path.basename(zname) == name:
+                            basename_matches.append(zname)
+                    if len(basename_matches) == 1:
+                        return zf.read(basename_matches[0])
+                    if len(basename_matches) > 1:
+                        logger.warning(f"附件名歧义（{len(basename_matches)} 个同名文件），跳过: {name}")
             except Exception as e:  # noqa: BLE001
                 logger.debug(f"从笔记 ZIP 读取附件失败 {name}: {e}")
 
-        # 2) 旧版附件目录兜底: {att_guid}{name} / {name}
+        # 2) 旧版附件目录兜底: {att_guid}{name} / {name} / {att_guid}
         if self._current.attachments_dir is not None:
+            att_dir = self._current.attachments_dir
             for cand in (f"{att_guid}{name}", name, att_guid):
-                p = self._current.attachments_dir / cand
-                if p.is_file():
+                p = self._safe_join(att_dir, cand)
+                if p is not None and p.is_file():
                     return p.read_bytes()
         return None
