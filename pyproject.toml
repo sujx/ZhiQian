@@ -7,7 +7,7 @@ name = "zhiqian"
 version = "1.0.0"
 description = "为知笔记导出工具：本地缓存/在线 API 批量导出为 Markdown"
 readme = "README.md"
-license = { text = "MIT" }
+license = { text = "Apache-2.0" }
 requires-python = ">=3.9"
 dependencies = [
     "html2text>=2020.1.16",
