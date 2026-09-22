@@ -17,4 +17,6 @@ env/
 htmlcov/
 
 notes/
+notes_gui/
 *.log
+*.spec
